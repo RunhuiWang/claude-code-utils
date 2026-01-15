@@ -132,23 +132,47 @@ This task demonstrates important lessons about parallelization:
 - **Memory-bound operations**: Python dict/string operations are already fast
 - **High data transfer**: Passing large dicts between processes is expensive
 
-### Benchmark Results
+### Benchmark Results (20K documents, 16 cores)
 
-| Corpus Size | Sequential | Parallel | Speedup |
-|-------------|-----------|----------|---------|
-| 1,000 docs  | 0.29s     | 1.04s    | 0.28x   |
-| 5,000 docs  | 1.86s     | 2.48s    | 0.75x   |
-| 10,000 docs | 3.86s     | 4.47s    | 0.86x   |
-| 20,000 docs | 7.56s     | 7.25s    | **1.04x** |
+#### Index Building
 
-**Key insight**: Parallelization only pays off when:
-- Work per item exceeds IPC overhead
-- Data transferred is small relative to computation
-- Tasks are CPU-bound, not memory-bound
+| Workers | Time | Speedup |
+|---------|------|---------|
+| Sequential | 9.51s | 1.00x |
+| 4 workers | 7.11s | **1.34x** |
+
+#### Batch Search (Variable-length queries 1-20 words)
+
+| Workers | 200 Queries | Speedup | 500 Queries | Speedup |
+|---------|-------------|---------|-------------|---------|
+| Sequential | 8.84s | 1.00x | 19.38s | 1.00x |
+| 4 workers | 2.82s | 3.13x | 5.80s | **3.34x** |
+| 8 workers | 2.47s | **3.58x** | 3.69s | **5.25x** |
+| 16 workers | 2.91s | 3.03x | 3.11s | **6.24x** |
+
+### Key Optimization: Worker Pool Initializer
+
+The batch search uses a **Pool initializer** pattern to load the index once per worker:
+
+```python
+with Pool(
+    processes=num_workers,
+    initializer=_init_search_worker,
+    initargs=(index.inverted_index, index.doc_vectors, ...)
+) as pool:
+    # Only queries passed - no index transfer per query!
+    results = pool.map(_search_query_worker, queries)
+```
+
+**Before optimization**: 23.9s (0.38x slower than sequential)
+**After optimization**: 2.47s (3.58x faster than sequential)
+
+**Key insight**: Minimizing inter-process data transfer is critical for parallel performance.
 
 ## Key Parallelization Techniques
 
 1. **MapReduce Pattern**: Map documents to local indices, reduce to global index
 2. **Chunked Processing**: Process documents in batches to reduce overhead
-3. **Lock-free Merging**: Use process-safe data structures for index merging
-4. **Parallel Search**: Distribute queries across workers for batch search
+3. **Worker Pool Initializer**: Load shared data once per worker, not per task
+4. **Lock-free Merging**: Use process-safe data structures for index merging
+5. **Parallel Search**: Distribute queries across workers for batch search
