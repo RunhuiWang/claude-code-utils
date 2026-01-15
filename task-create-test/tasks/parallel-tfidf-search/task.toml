@@ -1,0 +1,24 @@
+[task]
+version = "1.0"
+id = "parallel-tfidf-search"
+name = "Parallel TF-IDF Similarity Search"
+description = "Parallelize a TF-IDF document search engine for improved performance"
+
+[author]
+name = "Claude"
+email = "claude@anthropic.com"
+
+[metadata]
+difficulty = "hard"
+category = "parallel-computing"
+tags = ["python", "multiprocessing", "search", "nlp", "optimization"]
+
+[timeouts]
+verifier = 300
+agent = 1800
+environment = 600
+
+[resources]
+cpus = 16
+memory = "8G"
+storage = "10G"
