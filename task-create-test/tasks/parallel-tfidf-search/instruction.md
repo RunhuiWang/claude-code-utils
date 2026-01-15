@@ -6,7 +6,7 @@ You have a sequential TF-IDF document search engine in the `workspace/` director
 
 Parallelize the TF-IDF search engine to achieve significant speedup on multi-core systems. The system has 16 CPU cores available.
 
-You need to create a file called `parallel_solution.py` that implements:
+You need to create a file `/app/workspace/parallel_solution.py` that implements:
 
 1. **`build_tfidf_index_parallel(documents, num_workers=None, chunk_size=500)`**
    - Build a TF-IDF inverted index using parallel processing
@@ -28,19 +28,3 @@ You need to create a file called `parallel_solution.py` that implements:
 ## Provided Files
 
 - `workspace/sequential.py` - Sequential baseline implementation
-- `workspace/document_generator.py` - Corpus generator for testing
-
-## Hints
-
-- Minimize inter-process data transfer - it's expensive
-- Consider where to compute IDF (needs global document frequencies)
-- Think about how to load shared data into workers efficiently
-- Small chunk sizes help with load balancing but increase overhead
-
-## Testing
-
-Your solution will be tested with:
-- 20,000 documents with variable lengths
-- 200-500 queries with variable lengths
-- Correctness: Results must match sequential implementation exactly
-- Performance: Must achieve the target speedups
