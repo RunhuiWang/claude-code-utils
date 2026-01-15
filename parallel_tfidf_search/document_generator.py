@@ -266,15 +266,23 @@ def generate_document(
     )
 
 
+def _generate_doc_worker(args: Tuple[int, str, int, int, int]) -> Document:
+    """Worker function for parallel document generation."""
+    doc_id, topic, min_words, max_words, worker_seed = args
+    random.seed(worker_seed)
+    return generate_document(doc_id, topic, min_words, max_words)
+
+
 def generate_corpus(
     num_docs: int,
     seed: int = 42,
     min_words: int = 50,
     max_words: int = 2000,
-    topic_distribution: Dict[str, float] = None
+    topic_distribution: Dict[str, float] = None,
+    num_workers: int = None
 ) -> List[Document]:
     """
-    Generate a corpus of documents.
+    Generate a corpus of documents in parallel.
 
     Args:
         num_docs: Number of documents to generate
@@ -282,30 +290,39 @@ def generate_corpus(
         min_words: Minimum words per document
         max_words: Maximum words per document
         topic_distribution: Optional dict mapping topics to probabilities
+        num_workers: Number of parallel workers (default: CPU count)
     """
+    import multiprocessing as mp
+    from multiprocessing import Pool
+
+    if num_workers is None:
+        num_workers = mp.cpu_count()
+
     random.seed(seed)
 
     if topic_distribution is None:
-        # Default: uniform distribution across topics
         topics = list(TOPICS.keys())
         topic_distribution = {t: 1.0 / len(topics) for t in topics}
 
-    # Normalize probabilities
     total = sum(topic_distribution.values())
     topic_probs = {t: p / total for t, p in topic_distribution.items()}
 
     topics_list = list(topic_probs.keys())
     probs_list = list(topic_probs.values())
 
-    documents = []
+    # Pre-generate all work items with unique seeds
+    work_items = []
     for i in range(num_docs):
         topic = random.choices(topics_list, weights=probs_list, k=1)[0]
-        doc = generate_document(i, topic, min_words, max_words)
-        documents.append(doc)
+        worker_seed = seed + i  # Unique seed per document
+        work_items.append((i, topic, min_words, max_words, worker_seed))
 
-        if (i + 1) % 1000 == 0:
-            print(f"Generated {i + 1}/{num_docs} documents...")
+    # Generate in parallel
+    print(f"Generating {num_docs} documents using {num_workers} workers...")
+    with Pool(processes=num_workers) as pool:
+        documents = pool.map(_generate_doc_worker, work_items, chunksize=100)
 
+    print(f"Generated {len(documents)} documents.")
     return documents
 
 
