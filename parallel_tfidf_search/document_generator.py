@@ -216,22 +216,25 @@ def generate_paragraph(topic_vocab: Dict[str, List[str]], sentences: int = None)
 def generate_document(
     doc_id: int,
     topic: str = None,
-    min_words: int = 50,
-    max_words: int = 2000
+    min_words: int = 20,
+    max_words: int = 10000
 ) -> Document:
     """
     Generate a single document with variable length.
 
     Document lengths follow a log-normal distribution to simulate
     real-world variation (many short docs, few very long docs).
+    High variance creates load balancing challenges for parallelization.
     """
     if topic is None:
         topic = random.choice(list(TOPICS.keys()))
 
     topic_vocab = TOPICS[topic]
 
-    # Log-normal distribution for document length
-    target_words = int(random.lognormvariate(5.5, 0.8))
+    # Log-normal distribution with HIGH variance for load imbalance
+    # mu=5.5, sigma=1.5 creates range from ~20 to ~10000 words
+    # This creates significant load balancing challenges
+    target_words = int(random.lognormvariate(5.5, 1.5))
     target_words = max(min_words, min(max_words, target_words))
 
     # Generate title
