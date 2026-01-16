@@ -1,0 +1,21 @@
+[task]
+version = "1.0"
+id = "spring-boot-jakarta-migration"
+name = "Spring Boot 2 to 3 Jakarta EE Migration"
+description = "Migrate a legacy Java 8/Spring Boot 2.7 microservice to Java 21/Spring Boot 3.2, including javax to jakarta namespace changes, Hibernate 6 upgrade, and Spring Security 6 configuration updates."
+
+[metadata]
+author = "SkillsBench Team"
+difficulty = "hard"
+category = "java-migration"
+tags = ["java", "spring-boot", "jakarta-ee", "hibernate", "migration", "refactoring", "spring-security"]
+
+[timeouts]
+verifier = 600
+agent = 3600
+environment = 900
+
+[resources]
+cpus = 4
+memory = "8G"
+storage = "20G"
