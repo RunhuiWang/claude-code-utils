@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir \
     numpy \
     numpy-stl \
     trimesh \
+    mapbox-earcut \
     Pillow \
     opencv-python-headless \
     scipy \

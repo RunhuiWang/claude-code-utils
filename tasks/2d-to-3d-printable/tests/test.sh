@@ -2,7 +2,7 @@
 set -e
 
 echo "=== Installing test dependencies ==="
-pip install pytest pytest-json-report trimesh==4.11.1 numpy==2.2.6 Pillow==12.1.0 opencv-python-headless==4.12.0.88 scipy==1.17.0 shapely==2.1.2
+pip install pytest pytest-json-report trimesh==4.11.1 numpy==2.2.6 Pillow==12.1.0 opencv-python-headless==4.12.0.88 scipy==1.17.0 shapely==2.1.2 mapbox-earcut==2.0.0
 
 echo "=== Running tests ==="
 cd /app
