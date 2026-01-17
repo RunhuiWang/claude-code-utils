@@ -1,0 +1,21 @@
+[task]
+version = "1.0"
+id = "2d-to-3d-printable"
+name = "2D Image to 3D Printable Model Conversion"
+description = "Convert a 2D image into a 3D printable model file (STL format) that can be used by major 3D printers"
+
+[metadata]
+author = "SkillsBench"
+difficulty = "hard"
+category = "3d-modeling"
+tags = ["3d-printing", "image-processing", "stl", "blender", "openscad", "computer-vision"]
+
+[timeouts]
+verifier = 600
+agent = 3600
+environment = 900
+
+[resources]
+cpus = 4
+memory = "8G"
+storage = "20G"
