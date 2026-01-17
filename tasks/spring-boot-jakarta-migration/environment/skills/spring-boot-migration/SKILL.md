@@ -174,13 +174,132 @@ spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
 
 Actuator endpoint paths have changed. Review your security configuration if you're exposing actuator endpoints.
 
+## Migration Commands
+
+### Update pom.xml with sed
+
+```bash
+# Update Spring Boot parent version
+sed -i 's/<version>2\.7\.[0-9]*<\/version>/<version>3.2.0<\/version>/g' pom.xml
+
+# Update Java version
+sed -i 's/<java.version>1\.8<\/java.version>/<java.version>21<\/java.version>/g' pom.xml
+sed -i 's/<java.version>8<\/java.version>/<java.version>21<\/java.version>/g' pom.xml
+sed -i 's/<java.version>11<\/java.version>/<java.version>21<\/java.version>/g' pom.xml
+
+# Remove old JAXB dependency (multi-line removal is complex - manual removal recommended)
+```
+
+### Remove Deprecated Dependencies
+
+```bash
+# Check for old JAXB dependencies
+grep -n "jaxb-api\|javax\.xml\.bind" pom.xml
+
+# These must be manually removed from pom.xml:
+# - javax.xml.bind:jaxb-api
+# - com.sun.xml.bind:jaxb-impl
+# - com.sun.xml.bind:jaxb-core
+```
+
+## Using OpenRewrite for Automated Migration
+
+OpenRewrite is the recommended tool for large-scale migrations:
+
+### Add OpenRewrite Plugin to pom.xml
+
+```xml
+<plugin>
+    <groupId>org.openrewrite.maven</groupId>
+    <artifactId>rewrite-maven-plugin</artifactId>
+    <version>5.42.0</version>
+    <configuration>
+        <activeRecipes>
+            <recipe>org.openrewrite.java.spring.boot3.UpgradeSpringBoot_3_2</recipe>
+        </activeRecipes>
+    </configuration>
+    <dependencies>
+        <dependency>
+            <groupId>org.openrewrite.recipe</groupId>
+            <artifactId>rewrite-spring</artifactId>
+            <version>5.21.0</version>
+        </dependency>
+    </dependencies>
+</plugin>
+```
+
+### Run OpenRewrite Migration
+
+```bash
+mvn rewrite:run
+```
+
+This will automatically:
+- Update Spring Boot version
+- Migrate `javax.*` to `jakarta.*` imports
+- Update deprecated Spring Security patterns
+- Fix property name changes
+
+## Verification Steps
+
+### Check Spring Boot Version
+
+```bash
+# Should show 3.x version
+grep -A2 "spring-boot-starter-parent" pom.xml | grep version
+```
+
+### Check Java Version
+
+```bash
+# Should show 17 or 21
+grep "java.version" pom.xml
+```
+
+### Check for Old Dependencies
+
+```bash
+# All should return NO results
+grep "jaxb-api" pom.xml
+grep "javax\.xml\.bind" pom.xml
+grep "<version>0\.9\.1</version>" pom.xml  # Old jjwt version
+```
+
+### Compile and Test
+
+```bash
+# Compile the project
+mvn clean compile
+
+# Run tests
+mvn test
+```
+
 ## Migration Checklist
 
 - [ ] Update `spring-boot-starter-parent` version to 3.2.x
 - [ ] Update `java.version` to 17 or 21
-- [ ] Remove deprecated Java EE dependencies
-- [ ] Update JWT library if used
+- [ ] Remove `javax.xml.bind:jaxb-api` and related JAXB dependencies
+- [ ] Remove old `io.jsonwebtoken:jjwt` if present, replace with modular jjwt
 - [ ] Run `mvn clean compile` to identify remaining issues
 - [ ] Fix all `javax.*` to `jakarta.*` imports
-- [ ] Update deprecated API usage
+- [ ] Update Spring Security configuration (see Spring Security 6 skill)
+- [ ] Replace RestTemplate with RestClient (see RestClient Migration skill)
 - [ ] Run tests to verify functionality
+
+## Recommended Migration Order
+
+1. **First**: Upgrade to Spring Boot 2.7.x (latest 2.x) if not already
+2. **Second**: Update Java version to 17 or 21
+3. **Third**: Remove incompatible dependencies (JAXB, old JWT)
+4. **Fourth**: Update Spring Boot parent to 3.2.x
+5. **Fifth**: Fix namespace imports (javax → jakarta)
+6. **Sixth**: Update Spring Security configuration
+7. **Seventh**: Update HTTP clients (RestTemplate → RestClient)
+8. **Finally**: Run full test suite
+
+## Sources
+
+- [Spring Boot 3.0 Migration Guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-3.0-Migration-Guide)
+- [OpenRewrite Spring Boot 3 Migration](https://docs.openrewrite.org/running-recipes/popular-recipe-guides/migrate-to-spring-3)
+- [Baeldung - Migrate to Spring Boot 3](https://www.baeldung.com/spring-boot-3-migration)

@@ -341,3 +341,83 @@ class SecurityTests {
     }
 }
 ```
+
+## Migration Commands Summary
+
+### Step 1: Remove WebSecurityConfigurerAdapter
+
+```bash
+# Find classes extending WebSecurityConfigurerAdapter
+grep -r "extends WebSecurityConfigurerAdapter" --include="*.java" .
+
+# The class must be refactored - cannot be automated with sed
+```
+
+### Step 2: Replace Method Security Annotation
+
+```bash
+# Replace @EnableGlobalMethodSecurity with @EnableMethodSecurity
+find . -name "*.java" -type f -exec sed -i 's/@EnableGlobalMethodSecurity/@EnableMethodSecurity/g' {} +
+
+# Update import
+find . -name "*.java" -type f -exec sed -i 's/import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity/import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity/g' {} +
+```
+
+### Step 3: Replace antMatchers with requestMatchers
+
+```bash
+# Replace antMatchers
+find . -name "*.java" -type f -exec sed -i 's/\.antMatchers(/.requestMatchers(/g' {} +
+
+# Replace mvcMatchers
+find . -name "*.java" -type f -exec sed -i 's/\.mvcMatchers(/.requestMatchers(/g' {} +
+
+# Replace regexMatchers
+find . -name "*.java" -type f -exec sed -i 's/\.regexMatchers(/.requestMatchers(/g' {} +
+```
+
+### Step 4: Replace authorizeRequests with authorizeHttpRequests
+
+```bash
+find . -name "*.java" -type f -exec sed -i 's/\.authorizeRequests(/.authorizeHttpRequests(/g' {} +
+```
+
+## Verification Commands
+
+### Verify No Deprecated Patterns Remain
+
+```bash
+# Should return NO results
+grep -r "WebSecurityConfigurerAdapter" --include="*.java" .
+grep -r "@EnableGlobalMethodSecurity" --include="*.java" .
+grep -r "\.antMatchers(" --include="*.java" .
+grep -r "\.authorizeRequests(" --include="*.java" .
+```
+
+### Verify New Patterns Are Present
+
+```bash
+# Should return results
+grep -r "@EnableMethodSecurity" --include="*.java" .
+grep -r "SecurityFilterChain" --include="*.java" .
+grep -r "\.requestMatchers(" --include="*.java" .
+grep -r "\.authorizeHttpRequests(" --include="*.java" .
+```
+
+## Common Migration Pitfalls
+
+1. **@Configuration is now required separately** - Before Spring Security 6, `@Configuration` was part of `@EnableWebSecurity`. Now you must add it explicitly.
+
+2. **Lambda DSL is mandatory** - The old chained method style (`http.csrf().disable().and()...`) is deprecated and must be converted to lambda style.
+
+3. **AuthenticationManager injection changed** - Use `AuthenticationConfiguration.getAuthenticationManager()` instead of overriding `authenticationManagerBean()`.
+
+4. **UserDetailsService auto-detection** - Spring Security 6 automatically detects `UserDetailsService` beans; no need for explicit configuration.
+
+5. **Method security default changes** - `@EnableMethodSecurity` enables `@PreAuthorize` and `@PostAuthorize` by default (unlike the old annotation).
+
+## Sources
+
+- [Baeldung - Migrate from Spring Security 5 to 6](https://www.baeldung.com/spring-security-migrate-5-to-6)
+- [Baeldung - Upgrading Deprecated WebSecurityConfigurerAdapter](https://www.baeldung.com/spring-deprecated-websecurityconfigureradapter)
+- [Spring Security 6 Reference](https://docs.spring.io/spring-security/reference/)

@@ -167,3 +167,97 @@ spring.jpa.properties.hibernate.timezone.default_storage=NORMALIZE
 1. **"Unknown entity"** - Ensure entity scanning is configured correctly
 2. **"Could not determine type"** - Check type mappings and annotations
 3. **"Query syntax error"** - Review JPQL for stricter H6 parsing rules
+
+## Critical Breaking Changes
+
+### 1. HQL/JPQL Query Parsing is Stricter
+
+```java
+// BEFORE (Hibernate 5) - this worked but was non-standard
+@Query("update from User u set u.active = false where u.id = :id")
+
+// AFTER (Hibernate 6) - remove the optional "from" keyword
+@Query("update User u set u.active = false where u.id = :id")
+```
+
+### 2. Distinct is No Longer Needed for Collections
+
+```java
+// BEFORE (Hibernate 5) - needed distinct to avoid duplicates
+@Query("select distinct u from User u join fetch u.roles")
+
+// AFTER (Hibernate 6) - duplicates are automatically filtered
+@Query("select u from User u join fetch u.roles")
+```
+
+### 3. Legacy Criteria API Removed
+
+The deprecated `org.hibernate.Criteria` API is completely removed. You must use JPA Criteria API:
+
+```java
+// BEFORE (Hibernate 5 - old Criteria)
+Criteria criteria = session.createCriteria(User.class);
+criteria.add(Restrictions.eq("active", true));
+List<User> users = criteria.list();
+
+// AFTER (Hibernate 6 - JPA Criteria)
+CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+CriteriaQuery<User> cq = cb.createQuery(User.class);
+Root<User> root = cq.from(User.class);
+cq.where(cb.equal(root.get("active"), true));
+List<User> users = entityManager.createQuery(cq).getResultList();
+```
+
+### 4. N+1 Query Behavior Changes
+
+Hibernate 6 may generate different SQL for lazy-loaded collections. Monitor your queries:
+
+```java
+// Add this to application.properties to monitor queries
+spring.jpa.properties.hibernate.generate_statistics=true
+logging.level.org.hibernate.stat=debug
+logging.level.org.hibernate.SQL=debug
+```
+
+## Migration Commands
+
+### Check for Hibernate 5 Patterns
+
+```bash
+# Check for old Criteria API usage
+grep -r "session.createCriteria\|org.hibernate.Criteria" --include="*.java" .
+
+# Check for deprecated @Type usage
+grep -r "@Type(type\s*=" --include="*.java" .
+
+# Check for @TypeDef
+grep -r "@TypeDef" --include="*.java" .
+
+# Check for "update from" pattern in queries
+grep -r "update from" --include="*.java" .
+```
+
+### Fix Common Issues
+
+```bash
+# Remove "from" keyword in update queries
+find . -name "*.java" -type f -exec sed -i 's/update from /update /g' {} +
+```
+
+## Performance Monitoring
+
+After migration, monitor for performance regressions:
+
+```properties
+# Enable Hibernate statistics
+spring.jpa.properties.hibernate.generate_statistics=true
+
+# Log slow queries (Hibernate 6.2+)
+spring.jpa.properties.hibernate.session.events.log.LOG_QUERIES_SLOWER_THAN_MS=100
+```
+
+## Sources
+
+- [Hibernate 6.0 Migration Guide](https://docs.jboss.org/hibernate/orm/6.0/migration-guide/migration-guide.html)
+- [Thorben Janssen - Migrating to Hibernate 6](https://thorben-janssen.com/migrating-to-hibernate-6/)
+- [Quarkus Hibernate 5 to 6 Migration](https://github.com/quarkusio/quarkus/wiki/Migration-Guide-3.0:-Hibernate-ORM-5-to-6-migration)
