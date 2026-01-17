@@ -156,3 +156,57 @@ grep -r "javax\.persistence" --include="*.java" .
 grep -r "javax\.validation" --include="*.java" .
 grep -r "javax\.servlet" --include="*.java" .
 ```
+
+## Critical: Ensure jakarta.persistence Is Present
+
+After migration, **your entity classes MUST use jakarta.persistence imports**. This is a hard requirement for Spring Boot 3.
+
+### Required Changes in Entity Classes
+
+Every JPA entity class must have its imports updated:
+
+```java
+// BEFORE (Spring Boot 2.x) - WRONG for Spring Boot 3
+import javax.persistence.Entity;
+import javax.persistence.Table;
+import javax.persistence.Id;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Column;
+import javax.persistence.Enumerated;
+import javax.persistence.EnumType;
+import javax.persistence.PrePersist;
+import javax.persistence.PreUpdate;
+
+// AFTER (Spring Boot 3.x) - REQUIRED
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.Id;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+```
+
+### Quick Migration Command
+
+To migrate all persistence imports at once:
+
+```bash
+# Replace javax.persistence with jakarta.persistence in all Java files
+find . -name "*.java" -type f -exec sed -i 's/import javax\.persistence/import jakarta.persistence/g' {} +
+```
+
+### Verify jakarta.persistence Is Present
+
+After migration, confirm jakarta imports exist:
+
+```bash
+# This should return results showing your entity classes
+grep -r "import jakarta\.persistence" --include="*.java" .
+```
+
+If this returns no results, the migration is incomplete.
