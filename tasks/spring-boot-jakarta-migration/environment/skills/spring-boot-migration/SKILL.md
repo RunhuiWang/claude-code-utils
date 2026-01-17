@@ -1,3 +1,8 @@
+---
+name: spring-boot-migration
+description: Migrate Spring Boot 2.x applications to Spring Boot 3.x. Use when updating pom.xml versions, removing deprecated JAXB dependencies, upgrading Java to 17/21, or using OpenRewrite for automated migration. Covers dependency updates, version changes, and migration checklist.
+---
+
 # Spring Boot 2 to 3 Migration Skill
 
 ## Overview
