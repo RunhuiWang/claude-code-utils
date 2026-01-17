@@ -81,15 +81,48 @@ public class SecurityConfig {
 }
 ```
 
-### 2. Method Security Annotation Change
+### 2. Method Security Annotation Change (CRITICAL)
+
+**This is a required change.** The `@EnableGlobalMethodSecurity` annotation is **removed** in Spring Security 6 and must be replaced with `@EnableMethodSecurity`.
 
 ```java
-// Before
+// BEFORE (Spring Security 5 / Spring Boot 2) - WILL NOT COMPILE in Spring Boot 3
 @EnableGlobalMethodSecurity(prePostEnabled = true)
 
-// After
+// AFTER (Spring Security 6 / Spring Boot 3) - REQUIRED
 @EnableMethodSecurity(prePostEnabled = true)
 ```
+
+#### Import Change
+
+```java
+// BEFORE
+import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
+
+// AFTER
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+```
+
+#### Quick Migration Command
+
+```bash
+# Replace the annotation in all Java files
+find . -name "*.java" -type f -exec sed -i 's/@EnableGlobalMethodSecurity/@EnableMethodSecurity/g' {} +
+
+# Also update the import statement
+find . -name "*.java" -type f -exec sed -i 's/EnableGlobalMethodSecurity/EnableMethodSecurity/g' {} +
+```
+
+#### Verify @EnableMethodSecurity Is Present
+
+After migration, confirm the new annotation exists:
+
+```bash
+# This should return results showing your security config class
+grep -r "@EnableMethodSecurity" --include="*.java" .
+```
+
+If this returns no results but you're using method-level security (`@PreAuthorize`, `@PostAuthorize`, etc.), the migration is incomplete.
 
 ### 3. Lambda DSL Configuration
 

@@ -40,16 +40,83 @@ Spring Boot 3 requires Java 17 or later:
 </properties>
 ```
 
-### 3. Remove Deprecated Dependencies
+### 3. Remove Deprecated Dependencies (CRITICAL: JAXB API)
 
-Remove Java EE compatibility dependencies that are no longer needed:
+**You MUST remove the old `javax.xml.bind:jaxb-api` dependency.** This is a Java EE dependency that was commonly added for Java 9+ compatibility in Spring Boot 2.x projects, but it conflicts with Jakarta EE in Spring Boot 3.
+
+#### Dependencies to REMOVE from pom.xml
 
 ```xml
-<!-- Remove these - no longer needed in Spring Boot 3 -->
+<!-- REMOVE ALL OF THESE - they are incompatible with Spring Boot 3 -->
+
+<!-- Old JAXB API - MUST BE REMOVED -->
 <dependency>
     <groupId>javax.xml.bind</groupId>
     <artifactId>jaxb-api</artifactId>
 </dependency>
+
+<!-- Old JAXB Implementation - MUST BE REMOVED -->
+<dependency>
+    <groupId>com.sun.xml.bind</groupId>
+    <artifactId>jaxb-impl</artifactId>
+</dependency>
+
+<dependency>
+    <groupId>com.sun.xml.bind</groupId>
+    <artifactId>jaxb-core</artifactId>
+</dependency>
+
+<!-- Old Java Activation - MUST BE REMOVED -->
+<dependency>
+    <groupId>javax.activation</groupId>
+    <artifactId>activation</artifactId>
+</dependency>
+
+<dependency>
+    <groupId>javax.activation</groupId>
+    <artifactId>javax.activation-api</artifactId>
+</dependency>
+```
+
+#### Why Remove These?
+
+1. **Namespace Conflict**: `javax.xml.bind` uses the old Java EE namespace, which conflicts with Jakarta EE's `jakarta.xml.bind`
+2. **Spring Boot 3 Includes Jakarta XML Bind**: If you need XML binding, Spring Boot 3 transitively includes the Jakarta versions
+3. **Build Failures**: Having both `javax.xml.bind` and `jakarta.xml.bind` on the classpath causes ClassNotFoundException and other runtime errors
+
+#### If You Need XML Binding in Spring Boot 3
+
+Use the Jakarta versions instead:
+
+```xml
+<!-- Only add these if you actually need XML binding -->
+<dependency>
+    <groupId>jakarta.xml.bind</groupId>
+    <artifactId>jakarta.xml.bind-api</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.glassfish.jaxb</groupId>
+    <artifactId>jaxb-runtime</artifactId>
+</dependency>
+```
+
+#### Quick Check for Old JAXB Dependencies
+
+```bash
+# Check if old JAXB is in your pom.xml
+grep -E "javax\.xml\.bind|jaxb-api" pom.xml
+
+# If this returns any results, you need to remove those dependencies
+```
+
+#### Verify Removal
+
+After removing, confirm no old JAXB references remain:
+
+```bash
+# This should return NO results
+grep -E "<artifactId>jaxb-api</artifactId>" pom.xml
+grep -E "javax\.xml\.bind" pom.xml
 ```
 
 ### 4. Update JWT Library
