@@ -6,7 +6,7 @@ set -e
 
 echo "=== 2D to 3D Printable Conversion Solution ==="
 
-cd /app/workspace
+cd /root/workspace
 
 echo "Step 1: Creating the conversion script..."
 
