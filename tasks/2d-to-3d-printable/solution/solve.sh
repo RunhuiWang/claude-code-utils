@@ -145,8 +145,8 @@ def validate_and_fix_mesh(mesh):
     """
     print("Validating and fixing mesh...")
 
-    # Remove degenerate faces
-    mesh.remove_degenerate_faces()
+    # Remove degenerate faces (use update_faces with nondegenerate_faces mask)
+    mesh.update_faces(mesh.nondegenerate_faces())
 
     # Merge duplicate vertices
     mesh.merge_vertices()
