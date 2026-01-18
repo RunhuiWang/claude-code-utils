@@ -37,18 +37,18 @@ RUN uv pip install --system \
     rtree==1.4.1
 
 # Set working directory
-WORKDIR /app
+WORKDIR /root
 
 # Copy workspace files
-COPY workspace/ /app/workspace/
+COPY workspace/ /root/workspace/
 
 # Copy skills to all agent paths
-COPY skills/ /app/.claude/skills/
-COPY skills/ /app/.codex/skills/
-COPY skills/ /app/.opencode/skill/
-COPY skills/ /app/.goose/skills/
-COPY skills/ /app/.factory/skills/
-COPY skills/ /app/.agents/skills/
+COPY skills/ /root/.claude/skills/
+COPY skills/ /root/.codex/skills/
+COPY skills/ /root/.opencode/skill/
+COPY skills/ /root/.goose/skills/
+COPY skills/ /root/.factory/skills/
+COPY skills/ /root/.agents/skills/
 
 # Set environment variables
 ENV DISPLAY=:99

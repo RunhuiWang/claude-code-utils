@@ -9,7 +9,7 @@ import numpy as np
 
 
 # Path to workspace
-WORKSPACE = '/app/workspace'
+WORKSPACE = '/root/workspace'
 OUTPUT_STL = os.path.join(WORKSPACE, 'output.stl')
 INPUT_PNG = os.path.join(WORKSPACE, 'input.png')
 
