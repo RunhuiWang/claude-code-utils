@@ -104,12 +104,14 @@ class TestPrintability:
         assert os.path.exists(OUTPUT_STL), f"Output file not found: {OUTPUT_STL}"
 
         mesh = trimesh.load(OUTPUT_STL)
-        degenerate = mesh.degenerate_faces
+        # Count degenerate faces using nondegenerate_faces() mask
+        non_degenerate = mesh.nondegenerate_faces()
+        num_degenerate = (~non_degenerate).sum()
 
         # Allow a small number of degenerate faces (some tools produce these)
         max_degenerate = len(mesh.faces) * 0.01  # Max 1%
-        assert len(degenerate) <= max_degenerate, \
-            f"Too many degenerate faces: {len(degenerate)} (max {max_degenerate:.0f})"
+        assert num_degenerate <= max_degenerate, \
+            f"Too many degenerate faces: {num_degenerate} (max {max_degenerate:.0f})"
 
     def test_positive_volume(self):
         """Model must have positive volume."""
