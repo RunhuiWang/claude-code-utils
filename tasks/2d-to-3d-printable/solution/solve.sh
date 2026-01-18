@@ -145,8 +145,11 @@ def validate_and_fix_mesh(mesh):
     """
     print("Validating and fixing mesh...")
 
-    # Remove degenerate faces (use update_faces with nondegenerate_faces mask)
-    mesh.update_faces(mesh.nondegenerate_faces())
+    # First pass: remove degenerate faces
+    non_degenerate = mesh.nondegenerate_faces()
+    if not non_degenerate.all():
+        print(f"Removing {(~non_degenerate).sum()} degenerate faces...")
+        mesh.update_faces(non_degenerate)
 
     # Merge duplicate vertices
     mesh.merge_vertices()
@@ -162,9 +165,25 @@ def validate_and_fix_mesh(mesh):
         print("Attempting to fill holes...")
         trimesh.repair.fill_holes(mesh)
 
+    # Second pass: remove any degenerate faces created by repair operations
+    non_degenerate = mesh.nondegenerate_faces()
+    if not non_degenerate.all():
+        print(f"Removing {(~non_degenerate).sum()} degenerate faces after repair...")
+        mesh.update_faces(non_degenerate)
+
+    # Remove unreferenced vertices
+    mesh.remove_unreferenced_vertices()
+
+    # Final cleanup pass
+    non_degenerate = mesh.nondegenerate_faces()
+    if not non_degenerate.all():
+        print(f"Final cleanup: removing {(~non_degenerate).sum()} degenerate faces...")
+        mesh.update_faces(non_degenerate)
+
     # Report status
     print(f"Mesh vertices: {len(mesh.vertices)}")
     print(f"Mesh faces: {len(mesh.faces)}")
+    print(f"Degenerate faces remaining: {len(mesh.degenerate_faces)}")
     print(f"Is watertight: {mesh.is_watertight}")
 
     bounds = mesh.bounds
