@@ -183,7 +183,7 @@ def validate_and_fix_mesh(mesh):
     # Report status
     print(f"Mesh vertices: {len(mesh.vertices)}")
     print(f"Mesh faces: {len(mesh.faces)}")
-    print(f"Degenerate faces remaining: {len(mesh.degenerate_faces)}")
+    print(f"Degenerate faces remaining: {(~mesh.nondegenerate_faces()).sum()}")
     print(f"Is watertight: {mesh.is_watertight}")
 
     bounds = mesh.bounds
