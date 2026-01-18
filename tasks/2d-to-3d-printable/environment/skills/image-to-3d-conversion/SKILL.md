@@ -227,7 +227,7 @@ def validate_and_fix_mesh(mesh):
     trimesh.repair.fix_winding(mesh)
 
     # Remove degenerate faces
-    mesh.remove_degenerate_faces()
+    mesh.update_faces(mesh.nondegenerate_faces())
 
     # Merge duplicate vertices
     mesh.merge_vertices()
