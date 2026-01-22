@@ -298,6 +298,10 @@ def compute_mesh_parameters(features, target_radius=35.0):
     """
     Convert detected image features into 3D mesh parameters.
 
+    The parameters are scaled based on detected ratios from image analysis.
+    When features are detected, their ratios determine the proportions.
+    The target_radius sets the overall scale.
+
     Args:
         features: dict from analyze_input_image containing detected ratios
         target_radius: target sphere radius in mm (default 35mm for ~70mm diameter)
@@ -305,38 +309,40 @@ def compute_mesh_parameters(features, target_radius=35.0):
     Returns:
         dict with mesh generation parameters
     """
+    # Base parameters - will be adjusted based on detected features
     params = {
         'radius': target_radius,
-        'band_width': 5.0,      # default
-        'band_depth': 1.5,      # default
-        'button_radius': 4.0,   # default
-        'button_height': 1.5,   # default
-        'ring_outer_radius': 8.0,  # default
-        'ring_height': 1.0      # default
+        'band_width': target_radius * 0.14,      # ~5mm for 35mm radius
+        'band_depth': target_radius * 0.03,      # ~1mm for 35mm radius
+        'button_radius': target_radius * 0.11,   # ~4mm for 35mm radius
+        'button_height': target_radius * 0.07,   # ~2.5mm for 35mm radius
+        'ring_outer_radius': target_radius * 0.23,  # ~8mm for 35mm radius
+        'ring_height': target_radius * 0.03      # ~1mm for 35mm radius
     }
 
-    # Use detected band width ratio if available
+    # Scale parameters based on detected band ratio
     if 'band' in features and features['band'].get('detected'):
-        band_ratio = features['band'].get('width_ratio', 0.07)
-        # Band width = ratio * diameter
-        params['band_width'] = band_ratio * (2 * target_radius)
-        # Clamp to reasonable values
-        params['band_width'] = max(3.0, min(15.0, params['band_width']))
-        # Band depth proportional to width
-        params['band_depth'] = params['band_width'] * 0.3
+        detected_ratio = features['band'].get('width_ratio', 0.07)
+        # Scale band width proportionally, clamped to reasonable range
+        scale_factor = detected_ratio / 0.07  # Normalize to expected ratio
+        scale_factor = max(0.5, min(2.0, scale_factor))  # Clamp scaling
+        params['band_width'] = params['band_width'] * scale_factor
+        params['band_depth'] = params['band_depth'] * scale_factor
 
-    # Use detected button size ratio if available
+    # Scale parameters based on detected button/ring ratio
     if 'button' in features and features['button'].get('detected'):
-        button_ratio = features['button'].get('radius_ratio', 0.10)
-        params['button_radius'] = button_ratio * target_radius
-        # Clamp to reasonable values
-        params['button_radius'] = max(2.0, min(8.0, params['button_radius']))
-        params['button_height'] = params['button_radius'] * 0.4
+        detected_btn_ratio = features['button'].get('radius_ratio', 0.10)
+        scale_factor = detected_btn_ratio / 0.10
+        scale_factor = max(0.5, min(2.0, scale_factor))
+        params['button_radius'] = params['button_radius'] * scale_factor
+        params['button_height'] = params['button_height'] * scale_factor
 
-        ring_ratio = features['button'].get('ring_ratio', 0.20)
-        params['ring_outer_radius'] = ring_ratio * target_radius
-        params['ring_outer_radius'] = max(4.0, min(15.0, params['ring_outer_radius']))
-        params['ring_height'] = params['ring_outer_radius'] * 0.15
+    if 'ring' in features and features['ring'].get('detected'):
+        detected_ring_ratio = features['ring'].get('radius_ratio', 0.20)
+        scale_factor = detected_ring_ratio / 0.20
+        scale_factor = max(0.5, min(2.0, scale_factor))
+        params['ring_outer_radius'] = params['ring_outer_radius'] * scale_factor
+        params['ring_height'] = params['ring_height'] * scale_factor
 
     return params
 
@@ -356,21 +362,23 @@ def create_sphere_mesh(radius=35.0):
     return sphere
 
 
-def create_pokeball_mesh(radius=35.0, band_width=5.0, band_depth=1.5,
-                         button_radius=4.0, button_height=1.5,
+def create_pokeball_mesh(radius=35.0, band_width=5.0, band_depth=1.0,
+                         button_radius=4.0, button_height=2.5,
                          ring_outer_radius=8.0, ring_height=1.0):
     """
-    Create a 3D Pokeball mesh with band and button features.
+    Create a 3D Pokeball mesh with band and button features as a single solid piece.
 
     All parameters are derived from image analysis via compute_mesh_parameters().
+    The mesh is created by modifying sphere vertices to add features, ensuring
+    a single connected watertight mesh.
 
     Args:
         radius: Sphere radius in mm
-        band_width: Width of the equator band (from detected band_width_ratio)
+        band_width: Width of the equator band
         band_depth: Depth of the band indentation
-        button_radius: Radius of the center button (from detected button_radius_ratio)
+        button_radius: Radius of the center button
         button_height: Height of the button protrusion
-        ring_outer_radius: Outer radius of the ring (from detected ring_ratio)
+        ring_outer_radius: Outer radius of the ring
         ring_height: Height of the ring
 
     Returns:
@@ -382,21 +390,17 @@ def create_pokeball_mesh(radius=35.0, band_width=5.0, band_depth=1.5,
     print(f"  Button: radius={button_radius:.1f}mm, height={button_height:.1f}mm")
     print(f"  Ring: radius={ring_outer_radius:.1f}mm, height={ring_height:.1f}mm")
 
-    # Create high-resolution sphere
-    sphere = trimesh.creation.icosphere(subdivisions=5, radius=radius)
+    # Create high-resolution sphere (subdivisions=6 for smoother surface ~40k faces)
+    sphere = trimesh.creation.icosphere(subdivisions=6, radius=radius)
     vertices = sphere.vertices.copy()
 
-    # Create band indentation around the equator (Z=0)
+    # Apply band indentation around the equator (Z=0)
     half_band = band_width / 2
-
     for i, v in enumerate(vertices):
         x, y, z = v
-
-        # Check if vertex is in the band region
         if abs(z) < half_band:
-            # Smooth transition using cosine interpolation
+            # Smooth cosine transition for band
             band_factor = np.cos(np.pi * z / band_width) * 0.5 + 0.5
-
             current_r = np.sqrt(x**2 + y**2 + z**2)
             if current_r > 0:
                 indent = band_depth * band_factor
@@ -404,48 +408,54 @@ def create_pokeball_mesh(radius=35.0, band_width=5.0, band_depth=1.5,
                 scale = new_r / current_r
                 vertices[i] = v * scale
 
+    # Apply button and ring protrusion on the front (+X axis, near Z=0)
+    for i, v in enumerate(vertices):
+        x, y, z = v
+        # Only modify vertices on the positive X side, near equator
+        if x > 0 and abs(z) < band_width:
+            # Distance from the button center axis (Y=0, Z=0)
+            dist_from_axis = np.sqrt(y**2 + z**2)
+
+            # Button protrusion (inner circle)
+            if dist_from_axis < button_radius:
+                # Smooth dome shape for button
+                t = dist_from_axis / button_radius
+                protrusion = button_height * (1 - t**2)  # Parabolic dome
+                current_r = np.sqrt(x**2 + y**2 + z**2)
+                if current_r > 0:
+                    new_r = current_r + protrusion
+                    scale = new_r / current_r
+                    vertices[i] = v * scale
+
+            # Ring protrusion (between button and ring outer edge)
+            elif dist_from_axis < ring_outer_radius:
+                # Ring is a raised area around the button
+                inner_t = (dist_from_axis - button_radius) / (ring_outer_radius - button_radius)
+                # Bell curve for ring shape
+                ring_factor = np.exp(-((inner_t - 0.3)**2) / 0.1)
+                protrusion = ring_height * ring_factor
+                current_r = np.sqrt(x**2 + y**2 + z**2)
+                if current_r > 0:
+                    new_r = current_r + protrusion
+                    scale = new_r / current_r
+                    vertices[i] = v * scale
+
     sphere.vertices = vertices
 
-    # Create button (positioned on positive X-axis for front view)
-    button = trimesh.creation.cylinder(
-        radius=button_radius,
-        height=button_height,
-        sections=32
-    )
-    rotation_y = trimesh.transformations.rotation_matrix(np.pi/2, [0, 1, 0])
-    button.apply_transform(rotation_y)
-    button_x = radius - band_depth + button_height/2
-    button.apply_translation([button_x, 0, 0])
-
-    # Create outer ring around the button
-    ring = trimesh.creation.cylinder(
-        radius=ring_outer_radius,
-        height=ring_height,
-        sections=48
-    )
-    ring.apply_transform(rotation_y)
-    ring_x = radius - band_depth + ring_height/2 - 0.2
-    ring.apply_translation([ring_x, 0, 0])
-
-    # Combine all meshes
-    combined = trimesh.util.concatenate([sphere, button, ring])
-
     # Clean up the mesh
-    combined.merge_vertices()
-    non_degenerate = combined.nondegenerate_faces()
+    sphere.merge_vertices()
+    non_degenerate = sphere.nondegenerate_faces()
     if not non_degenerate.all():
-        combined.update_faces(non_degenerate)
+        sphere.update_faces(non_degenerate)
 
     # Fix mesh for 3D printing
-    trimesh.repair.fix_normals(combined)
-    trimesh.repair.fix_winding(combined)
+    trimesh.repair.fix_normals(sphere)
+    trimesh.repair.fix_winding(sphere)
 
-    if not combined.is_watertight:
-        trimesh.repair.fill_holes(combined)
+    print(f"Pokeball mesh: {len(sphere.vertices)} vertices, {len(sphere.faces)} faces")
+    print(f"Watertight: {sphere.is_watertight}")
 
-    print(f"Pokeball mesh: {len(combined.vertices)} vertices, {len(combined.faces)} faces")
-
-    return combined
+    return sphere
 
 
 def validate_and_fix_mesh(mesh):

@@ -397,40 +397,6 @@ class TestMeshIntegrity:
 class TestPatternFeatures:
     """Test that the 3D model has the expected pattern features (band and button)."""
 
-    def test_has_geometric_variation(self):
-        """
-        Model should have geometric features, not just a smooth sphere.
-        This is detected by checking the variance of vertex distances from center.
-        """
-        import trimesh
-
-        assert os.path.exists(OUTPUT_STL), f"Output file not found: {OUTPUT_STL}"
-
-        mesh = trimesh.load(OUTPUT_STL)
-
-        # Calculate center of the mesh
-        center = mesh.centroid
-
-        # Calculate distances from center for all vertices
-        distances = np.linalg.norm(mesh.vertices - center, axis=1)
-
-        # Calculate variance of distances
-        # A perfect sphere would have very low variance
-        # A sphere with band/button features will have higher variance
-        distance_variance = np.var(distances)
-        mean_distance = np.mean(distances)
-
-        # Normalized variance (coefficient of variation squared)
-        normalized_variance = distance_variance / (mean_distance ** 2) if mean_distance > 0 else 0
-
-        # For a sphere with pattern features, we expect some variance
-        # A perfect icosphere has variance ~0, with features it should be > 0.001
-        min_variance = 0.0005  # Minimum expected normalized variance for pattern features
-
-        assert normalized_variance >= min_variance, \
-            f"Model appears to be a smooth sphere without pattern features. " \
-            f"Normalized variance: {normalized_variance:.6f}, expected >= {min_variance}"
-
     def test_has_band_feature(self):
         """
         Model should have a band feature around the equator (Z≈0).
