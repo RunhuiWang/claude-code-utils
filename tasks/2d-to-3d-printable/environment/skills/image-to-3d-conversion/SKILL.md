@@ -93,6 +93,104 @@ pokeball = create_sphere(diameter=80.0)  # 80mm diameter
 pokeball.export('pokeball.stl')
 ```
 
+### Method 1b: Sphere with Pattern Features (Pokeball)
+
+For objects like Pokeballs that have distinctive patterns (band, button):
+
+```python
+import trimesh
+import numpy as np
+
+def create_pokeball_with_pattern(radius=40.0, band_width=6.0, band_depth=2.0,
+                                  button_radius=6.0, button_height=2.0):
+    """
+    Create a Pokeball mesh with band and button features.
+
+    Args:
+        radius: Sphere radius in mm
+        band_width: Width of the equator band
+        band_depth: Depth of the band indentation
+        button_radius: Radius of the center button
+        button_height: Height of the button protrusion
+
+    Returns:
+        trimesh.Trimesh object
+    """
+    # Create high-resolution sphere
+    sphere = trimesh.creation.icosphere(subdivisions=5, radius=radius)
+    vertices = sphere.vertices.copy()
+
+    # Create band by displacing vertices around the equator (Z=0)
+    half_band = band_width / 2
+    for i, v in enumerate(vertices):
+        x, y, z = v
+        if abs(z) < half_band:
+            # Smooth indentation using cosine interpolation
+            band_factor = np.cos(np.pi * z / band_width) * 0.5 + 0.5
+            current_r = np.sqrt(x**2 + y**2 + z**2)
+            if current_r > 0:
+                indent = band_depth * band_factor
+                new_r = current_r - indent
+                vertices[i] = v * (new_r / current_r)
+
+    sphere.vertices = vertices
+
+    # Create button (cylinder positioned at front of sphere)
+    button = trimesh.creation.cylinder(
+        radius=button_radius,
+        height=button_height,
+        sections=32
+    )
+    # Rotate to point outward on Y-axis
+    rotation = trimesh.transformations.rotation_matrix(np.pi/2, [1, 0, 0])
+    button.apply_transform(rotation)
+    button.apply_translation([0, radius - band_depth, 0])
+
+    # Create button ring
+    ring = trimesh.creation.cylinder(
+        radius=button_radius + 5,
+        height=1.5,
+        sections=32
+    )
+    ring.apply_transform(rotation)
+    ring.apply_translation([0, radius - band_depth - 0.5, 0])
+
+    # Combine meshes
+    combined = trimesh.util.concatenate([sphere, button, ring])
+    combined.merge_vertices()
+
+    return combined
+
+# Usage
+pokeball = create_pokeball_with_pattern(radius=40.0)
+pokeball.export('pokeball.stl')
+```
+
+### Detecting Pokeball Pattern in Images
+
+```python
+import cv2
+import numpy as np
+
+def detect_pokeball_band(img):
+    """
+    Detect if an image shows a Pokeball with the characteristic band.
+    """
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    # Detect dark pixels (black band)
+    lower_black = np.array([0, 0, 0])
+    upper_black = np.array([180, 255, 50])
+    black_mask = cv2.inRange(hsv, lower_black, upper_black)
+
+    # Check middle region for horizontal band
+    h, w = black_mask.shape
+    middle_region = black_mask[int(h*0.4):int(h*0.6), :]
+
+    dark_ratio = np.sum(middle_region > 0) / middle_region.size
+    return dark_ratio > 0.10  # Has band if >10% dark pixels in middle
+```
+
 ### Method 2: Extruded Polygon (for flat shapes)
 
 For shapes that need to be extruded from a 2D silhouette:
