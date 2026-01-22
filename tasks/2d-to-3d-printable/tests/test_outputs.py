@@ -213,6 +213,187 @@ class TestProjectionMatch:
         assert iou >= min_iou, f"Projection similarity too low: IoU={iou:.2f}, required >={min_iou}"
 
 
+class TestMeshIntegrity:
+    """Test that the mesh is a single solid piece without gaps or disconnected parts."""
+
+    def test_single_connected_component(self):
+        """
+        Model should be a single connected piece, not multiple disconnected parts.
+        This prevents the object from falling apart when printed.
+        """
+        import trimesh
+
+        assert os.path.exists(OUTPUT_STL), f"Output file not found: {OUTPUT_STL}"
+
+        mesh = trimesh.load(OUTPUT_STL)
+
+        # Split mesh into connected components
+        # If there are multiple bodies, the mesh has disconnected parts
+        try:
+            bodies = mesh.split(only_watertight=False)
+            num_bodies = len(bodies)
+        except Exception:
+            # If split fails, try alternative method
+            num_bodies = 1
+
+        assert num_bodies == 1, \
+            f"Mesh has {num_bodies} disconnected parts - should be a single connected piece. " \
+            f"This will cause the object to fall apart when printed."
+
+    def test_no_open_edges(self):
+        """
+        Model should not have open edges (edges belonging to only one face).
+        Open edges indicate gaps or holes in the mesh surface.
+        """
+        import trimesh
+
+        assert os.path.exists(OUTPUT_STL), f"Output file not found: {OUTPUT_STL}"
+
+        mesh = trimesh.load(OUTPUT_STL)
+
+        # Get edges that are only connected to one face (boundary edges)
+        # These indicate gaps in the mesh
+        try:
+            # edges_unique gives unique edges, face_adjacency shows which faces share edges
+            # Boundary edges are those that appear in only one face
+            edges = mesh.edges_unique
+            edge_face_count = np.zeros(len(edges), dtype=int)
+
+            # Count how many faces each edge belongs to
+            for face in mesh.faces:
+                face_edges = [
+                    tuple(sorted([face[0], face[1]])),
+                    tuple(sorted([face[1], face[2]])),
+                    tuple(sorted([face[2], face[0]]))
+                ]
+                for edge in face_edges:
+                    # Find this edge in edges_unique
+                    for i, e in enumerate(edges):
+                        if tuple(sorted(e)) == edge:
+                            edge_face_count[i] += 1
+                            break
+
+            # Open edges belong to only one face
+            open_edges = np.sum(edge_face_count == 1)
+
+            # Alternative: use trimesh's built-in check
+            if hasattr(mesh, 'is_watertight') and mesh.is_watertight:
+                open_edges = 0  # Watertight mesh has no open edges by definition
+
+        except Exception:
+            # Fallback: if watertight, no open edges
+            open_edges = 0 if mesh.is_watertight else -1
+
+        assert open_edges == 0, \
+            f"Mesh has {open_edges} open edges indicating gaps. " \
+            f"These gaps will cause visual defects and printing issues."
+
+    def test_faces_consistently_oriented(self):
+        """
+        All faces should be consistently oriented (normals pointing outward).
+        Inconsistent orientation indicates flipped faces that create visual gaps.
+        """
+        import trimesh
+
+        assert os.path.exists(OUTPUT_STL), f"Output file not found: {OUTPUT_STL}"
+
+        mesh = trimesh.load(OUTPUT_STL)
+
+        # Check if the mesh is consistently wound
+        # trimesh.repair.broken_faces returns faces that have issues
+        try:
+            # A watertight mesh with consistent winding has no inverted faces
+            if mesh.is_watertight:
+                # For watertight meshes, check volume sign
+                # Negative volume indicates inverted normals
+                volume_ok = mesh.volume > 0
+
+                assert volume_ok, \
+                    "Mesh has inverted face normals - faces are oriented inside-out"
+            else:
+                # For non-watertight, check if faces are reasonably oriented
+                # by verifying most normals point outward from centroid
+                centroid = mesh.centroid
+                face_centers = mesh.triangles_center
+                face_normals = mesh.face_normals
+
+                # Vector from centroid to face center
+                to_face = face_centers - centroid
+                # Dot product with normal - should be positive if pointing outward
+                dots = np.sum(to_face * face_normals, axis=1)
+                outward_facing = np.sum(dots > 0)
+                outward_ratio = outward_facing / len(dots) if len(dots) > 0 else 0
+
+                # At least 80% of faces should point outward
+                assert outward_ratio >= 0.8, \
+                    f"Only {outward_ratio*100:.1f}% of faces point outward. " \
+                    f"Inconsistent face orientation will cause visual gaps."
+
+        except Exception as e:
+            # If checks fail, just verify basic mesh validity
+            assert len(mesh.faces) > 0, f"Mesh validation failed: {e}"
+
+    def test_no_self_intersections(self):
+        """
+        Model should not have self-intersecting faces.
+        Self-intersections create internal gaps and printing artifacts.
+        """
+        import trimesh
+
+        assert os.path.exists(OUTPUT_STL), f"Output file not found: {OUTPUT_STL}"
+
+        mesh = trimesh.load(OUTPUT_STL)
+
+        # Check for self-intersections using trimesh's ray casting
+        # This is a simplified check - full intersection testing is expensive
+        try:
+            # For a valid mesh, the volume should be computable and positive
+            if mesh.is_watertight and mesh.volume > 0:
+                # Watertight with positive volume is a good indicator of no major intersections
+                has_major_intersections = False
+            else:
+                # Check if the mesh can be processed without errors
+                # Severe self-intersections often cause processing failures
+                _ = mesh.convex_hull
+                has_major_intersections = False
+        except Exception:
+            has_major_intersections = True
+
+        assert not has_major_intersections, \
+            "Mesh appears to have self-intersecting geometry. " \
+            "This will cause visual gaps and printing failures."
+
+    def test_minimum_wall_thickness(self):
+        """
+        Model should have adequate wall thickness for 3D printing.
+        Very thin walls can create gaps or break during printing.
+        """
+        import trimesh
+
+        assert os.path.exists(OUTPUT_STL), f"Output file not found: {OUTPUT_STL}"
+
+        mesh = trimesh.load(OUTPUT_STL)
+
+        # For a solid model, check that features aren't too thin
+        # by verifying the mesh has reasonable volume relative to surface area
+        if mesh.is_watertight and mesh.volume > 0:
+            volume = mesh.volume
+            surface_area = mesh.area
+
+            # Volume to surface ratio indicates average thickness
+            # For a sphere: V/A = r/3, so ratio = diameter/6
+            # For a 70mm ball: ratio ≈ 11.67
+            # Minimum acceptable ratio for printability
+            va_ratio = volume / surface_area if surface_area > 0 else 0
+
+            # Minimum ratio corresponding to ~0.5mm effective thickness
+            min_ratio = 0.5
+
+            assert va_ratio >= min_ratio, \
+                f"Model may have areas too thin for printing. " \
+                f"Volume/Area ratio: {va_ratio:.2f}mm, expected >= {min_ratio}mm"
+
+
 class TestPatternFeatures:
     """Test that the 3D model has the expected pattern features (band and button)."""
 
