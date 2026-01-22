@@ -211,3 +211,152 @@ class TestProjectionMatch:
         # This is a relaxed threshold to account for simplification
         min_iou = 0.5
         assert iou >= min_iou, f"Projection similarity too low: IoU={iou:.2f}, required >={min_iou}"
+
+
+class TestPatternFeatures:
+    """Test that the 3D model has the expected pattern features (band and button)."""
+
+    def test_has_geometric_variation(self):
+        """
+        Model should have geometric features, not just a smooth sphere.
+        This is detected by checking the variance of vertex distances from center.
+        """
+        import trimesh
+
+        assert os.path.exists(OUTPUT_STL), f"Output file not found: {OUTPUT_STL}"
+
+        mesh = trimesh.load(OUTPUT_STL)
+
+        # Calculate center of the mesh
+        center = mesh.centroid
+
+        # Calculate distances from center for all vertices
+        distances = np.linalg.norm(mesh.vertices - center, axis=1)
+
+        # Calculate variance of distances
+        # A perfect sphere would have very low variance
+        # A sphere with band/button features will have higher variance
+        distance_variance = np.var(distances)
+        mean_distance = np.mean(distances)
+
+        # Normalized variance (coefficient of variation squared)
+        normalized_variance = distance_variance / (mean_distance ** 2) if mean_distance > 0 else 0
+
+        # For a sphere with pattern features, we expect some variance
+        # A perfect icosphere has variance ~0, with features it should be > 0.001
+        min_variance = 0.0005  # Minimum expected normalized variance for pattern features
+
+        assert normalized_variance >= min_variance, \
+            f"Model appears to be a smooth sphere without pattern features. " \
+            f"Normalized variance: {normalized_variance:.6f}, expected >= {min_variance}"
+
+    def test_has_band_feature(self):
+        """
+        Model should have a band feature around the equator (Z≈0).
+        The band is detected by checking if vertices near Z=0 have smaller radii.
+        """
+        import trimesh
+
+        assert os.path.exists(OUTPUT_STL), f"Output file not found: {OUTPUT_STL}"
+
+        mesh = trimesh.load(OUTPUT_STL)
+        center = mesh.centroid
+        vertices = mesh.vertices - center  # Center the mesh
+
+        # Get the approximate radius (average distance from center)
+        distances = np.linalg.norm(vertices, axis=1)
+        avg_radius = np.mean(distances)
+
+        # Find vertices near the equator (Z close to 0)
+        equator_mask = np.abs(vertices[:, 2]) < avg_radius * 0.15  # Within 15% of radius from equator
+        polar_mask = np.abs(vertices[:, 2]) > avg_radius * 0.5  # Far from equator
+
+        if equator_mask.sum() > 0 and polar_mask.sum() > 0:
+            # Calculate average distance for equator and polar regions
+            equator_distances = distances[equator_mask]
+            polar_distances = distances[polar_mask]
+
+            avg_equator_dist = np.mean(equator_distances)
+            avg_polar_dist = np.mean(polar_distances)
+
+            # For a Pokeball with a band, equator vertices should be slightly closer to center
+            # (due to the indentation) or have more variation (due to button)
+            # We check if there's any difference between regions
+            distance_ratio = avg_equator_dist / avg_polar_dist if avg_polar_dist > 0 else 1
+
+            # The band should create some difference (either indentation or button protrusion)
+            # Accept both cases: band indented (ratio < 1) or button protruding (local max)
+            has_band = distance_ratio < 0.99 or distance_ratio > 1.01
+
+            assert has_band, \
+                f"No band feature detected. Equator/polar distance ratio: {distance_ratio:.4f}, " \
+                f"expected difference from 1.0"
+
+    def test_has_button_feature(self):
+        """
+        Model should have a button feature (protrusion at the equator).
+        Detected by finding vertices that protrude beyond the average radius near Z=0.
+        """
+        import trimesh
+
+        assert os.path.exists(OUTPUT_STL), f"Output file not found: {OUTPUT_STL}"
+
+        mesh = trimesh.load(OUTPUT_STL)
+        center = mesh.centroid
+        vertices = mesh.vertices - center
+
+        # Get the approximate radius
+        distances = np.linalg.norm(vertices, axis=1)
+        avg_radius = np.mean(distances)
+        max_radius = np.max(distances)
+
+        # Find vertices near the equator that protrude
+        equator_mask = np.abs(vertices[:, 2]) < avg_radius * 0.2
+        equator_distances = distances[equator_mask]
+
+        if len(equator_distances) > 0:
+            # Check for protruding vertices (button)
+            max_equator_dist = np.max(equator_distances)
+            protrusion = max_equator_dist - avg_radius
+
+            # Button should protrude at least slightly
+            min_protrusion = avg_radius * 0.01  # At least 1% protrusion
+
+            has_button = protrusion >= min_protrusion
+
+            assert has_button, \
+                f"No button feature detected. Max protrusion: {protrusion:.2f}mm, " \
+                f"expected >= {min_protrusion:.2f}mm"
+
+    def test_spherical_base_shape(self):
+        """
+        Model should be based on a spherical shape (like a Pokeball).
+        Detected by checking that most vertices are at approximately the same distance from center.
+        """
+        import trimesh
+
+        assert os.path.exists(OUTPUT_STL), f"Output file not found: {OUTPUT_STL}"
+
+        mesh = trimesh.load(OUTPUT_STL)
+        center = mesh.centroid
+        vertices = mesh.vertices - center
+
+        # Calculate distances from center
+        distances = np.linalg.norm(vertices, axis=1)
+        avg_radius = np.mean(distances)
+
+        # For a spherical base, most vertices should be within 20% of average radius
+        # (allowing for band indentation and button protrusion)
+        tolerance = 0.25 * avg_radius
+        within_tolerance = np.sum(np.abs(distances - avg_radius) < tolerance)
+        total_vertices = len(distances)
+        spherical_ratio = within_tolerance / total_vertices
+
+        # At least 70% of vertices should be near the average radius
+        min_spherical_ratio = 0.70
+
+        assert spherical_ratio >= min_spherical_ratio, \
+            f"Model is not sufficiently spherical. " \
+            f"Only {spherical_ratio*100:.1f}% of vertices are within tolerance, " \
+            f"expected >= {min_spherical_ratio*100:.1f}%"
+
