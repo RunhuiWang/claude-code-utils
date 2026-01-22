@@ -223,16 +223,119 @@ class TestBuildAndCompile:
             result.returncode == 0
         ), f"Maven compile failed: {result.stdout}\n{result.stderr}"
 
-    def test_maven_test(self):
-        """Verify all tests pass"""
+
+class TestJavaUnitTests:
+    """Test that the Java unit tests in UserServiceApplicationTests.java pass.
+
+    These tests validate that the migrated application works correctly:
+    - Spring context loads with all beans properly configured
+    - User CRUD operations work with the migrated JPA/Hibernate 6
+    - Validation and business logic function correctly
+    """
+
+    def test_java_unit_tests_all_pass(self):
+        """Run mvn test and verify all Java unit tests pass"""
         result = subprocess.run(
-            ["bash", "-c", "source /root/.sdkman/bin/sdkman-init.sh && sdk use java 21.0.2-tem && mvn test -q"],
+            ["bash", "-c", "source /root/.sdkman/bin/sdkman-init.sh && sdk use java 21.0.2-tem && mvn test"],
             cwd=WORKSPACE_DIR,
             capture_output=True,
             text=True,
             timeout=300,
         )
-        assert result.returncode == 0, f"Maven test failed: {result.stdout}\n{result.stderr}"
+
+        output = result.stdout + result.stderr
+
+        # Check that the test class was executed
+        assert "UserServiceApplicationTests" in output, \
+            f"UserServiceApplicationTests was not executed. Output:\n{output}"
+
+        # Check for test success
+        assert result.returncode == 0, \
+            f"Java unit tests failed with return code {result.returncode}:\n{output}"
+
+    def test_spring_context_loads(self):
+        """Verify the Spring context loads test passes (validates DI and bean configuration)"""
+        result = subprocess.run(
+            ["bash", "-c",
+             "source /root/.sdkman/bin/sdkman-init.sh && sdk use java 21.0.2-tem && "
+             "mvn test -Dtest=UserServiceApplicationTests#contextLoads"],
+            cwd=WORKSPACE_DIR,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        assert result.returncode == 0, \
+            f"contextLoads test failed:\n{result.stdout}\n{result.stderr}"
+
+    def test_create_user_operation(self):
+        """Verify user creation works with migrated JPA entities"""
+        result = subprocess.run(
+            ["bash", "-c",
+             "source /root/.sdkman/bin/sdkman-init.sh && sdk use java 21.0.2-tem && "
+             "mvn test -Dtest=UserServiceApplicationTests#testCreateUser"],
+            cwd=WORKSPACE_DIR,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        assert result.returncode == 0, \
+            f"testCreateUser test failed:\n{result.stdout}\n{result.stderr}"
+
+    def test_get_user_by_id_operation(self):
+        """Verify user retrieval works with migrated repository"""
+        result = subprocess.run(
+            ["bash", "-c",
+             "source /root/.sdkman/bin/sdkman-init.sh && sdk use java 21.0.2-tem && "
+             "mvn test -Dtest=UserServiceApplicationTests#testGetUserById"],
+            cwd=WORKSPACE_DIR,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        assert result.returncode == 0, \
+            f"testGetUserById test failed:\n{result.stdout}\n{result.stderr}"
+
+    def test_update_user_operation(self):
+        """Verify user update works with migrated JPA entities"""
+        result = subprocess.run(
+            ["bash", "-c",
+             "source /root/.sdkman/bin/sdkman-init.sh && sdk use java 21.0.2-tem && "
+             "mvn test -Dtest=UserServiceApplicationTests#testUpdateUser"],
+            cwd=WORKSPACE_DIR,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        assert result.returncode == 0, \
+            f"testUpdateUser test failed:\n{result.stdout}\n{result.stderr}"
+
+    def test_deactivate_user_operation(self):
+        """Verify user deactivation works"""
+        result = subprocess.run(
+            ["bash", "-c",
+             "source /root/.sdkman/bin/sdkman-init.sh && sdk use java 21.0.2-tem && "
+             "mvn test -Dtest=UserServiceApplicationTests#testDeactivateUser"],
+            cwd=WORKSPACE_DIR,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        assert result.returncode == 0, \
+            f"testDeactivateUser test failed:\n{result.stdout}\n{result.stderr}"
+
+    def test_duplicate_username_validation(self):
+        """Verify business logic validation still works after migration"""
+        result = subprocess.run(
+            ["bash", "-c",
+             "source /root/.sdkman/bin/sdkman-init.sh && sdk use java 21.0.2-tem && "
+             "mvn test -Dtest=UserServiceApplicationTests#testDuplicateUsername"],
+            cwd=WORKSPACE_DIR,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        assert result.returncode == 0, \
+            f"testDuplicateUsername test failed:\n{result.stdout}\n{result.stderr}"
 
 
 class TestDependencyUpdates:
