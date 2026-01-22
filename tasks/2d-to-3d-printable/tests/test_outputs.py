@@ -400,7 +400,9 @@ class TestPatternFeatures:
     def test_has_band_feature(self):
         """
         Model should have a band feature around the equator (Z≈0).
-        The band is detected by checking if vertices near Z=0 have smaller radii.
+        The band must be a depression (indented inward), not a bulge.
+        This is verified by checking that vertices near Z=0 have smaller radii
+        than vertices at the poles.
         """
         import trimesh
 
@@ -426,18 +428,19 @@ class TestPatternFeatures:
             avg_equator_dist = np.mean(equator_distances)
             avg_polar_dist = np.mean(polar_distances)
 
-            # For a Pokeball with a band, equator vertices should be slightly closer to center
-            # (due to the indentation) or have more variation (due to button)
-            # We check if there's any difference between regions
+            # For a Pokeball, the band must be a depression (indented inward)
+            # This means equator vertices should be CLOSER to center than polar vertices
+            # So avg_equator_dist < avg_polar_dist, giving ratio < 1.0
             distance_ratio = avg_equator_dist / avg_polar_dist if avg_polar_dist > 0 else 1
 
-            # The band should create some difference (either indentation or button protrusion)
-            # Accept both cases: band indented (ratio < 1) or button protruding (local max)
-            has_band = distance_ratio < 0.99 or distance_ratio > 1.01
+            # The band should be indented - equator distance must be less than polar distance
+            # A ratio < 0.995 indicates the band is a depression
+            is_depression = distance_ratio < 0.995
 
-            assert has_band, \
-                f"No band feature detected. Equator/polar distance ratio: {distance_ratio:.4f}, " \
-                f"expected difference from 1.0"
+            assert is_depression, \
+                f"Band is not a depression (indented inward). " \
+                f"Equator/polar distance ratio: {distance_ratio:.4f}, expected < 0.995. " \
+                f"The band should be indented like in the input image, not bulging outward."
 
     def test_has_button_feature(self):
         """
