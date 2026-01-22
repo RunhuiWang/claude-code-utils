@@ -288,7 +288,7 @@ def create_pokeball_with_band(radius, band_width, band_depth, button_radius, but
 
     # Process to make watertight
     combined.merge_vertices()
-    combined.remove_degenerate_faces()
+    combined.update_faces(combined.nondegenerate_faces())
 
     # Try to make it a single solid
     # Fill any holes
