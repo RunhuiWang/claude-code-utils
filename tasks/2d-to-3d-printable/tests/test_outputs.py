@@ -420,27 +420,30 @@ class TestPatternFeatures:
         equator_mask = np.abs(vertices[:, 2]) < avg_radius * 0.15  # Within 15% of radius from equator
         polar_mask = np.abs(vertices[:, 2]) > avg_radius * 0.5  # Far from equator
 
-        if equator_mask.sum() > 0 and polar_mask.sum() > 0:
-            # Calculate average distance for equator and polar regions
-            equator_distances = distances[equator_mask]
-            polar_distances = distances[polar_mask]
+        # Ensure we have enough vertices in both regions
+        assert equator_mask.sum() > 0, "No vertices found near the equator"
+        assert polar_mask.sum() > 0, "No vertices found in polar regions"
 
-            avg_equator_dist = np.mean(equator_distances)
-            avg_polar_dist = np.mean(polar_distances)
+        # Calculate average distance for equator and polar regions
+        equator_distances = distances[equator_mask]
+        polar_distances = distances[polar_mask]
 
-            # For a Pokeball, the band must be a depression (indented inward)
-            # This means equator vertices should be CLOSER to center than polar vertices
-            # So avg_equator_dist < avg_polar_dist, giving ratio < 1.0
-            distance_ratio = avg_equator_dist / avg_polar_dist if avg_polar_dist > 0 else 1
+        avg_equator_dist = np.mean(equator_distances)
+        avg_polar_dist = np.mean(polar_distances)
 
-            # The band should be indented - equator distance must be less than polar distance
-            # A ratio < 0.995 indicates the band is a depression
-            is_depression = distance_ratio < 0.995
+        # For a Pokeball, the band must be a depression (indented inward)
+        # This means equator vertices should be CLOSER to center than polar vertices
+        # So avg_equator_dist < avg_polar_dist, giving ratio < 1.0
+        distance_ratio = avg_equator_dist / avg_polar_dist if avg_polar_dist > 0 else 1
 
-            assert is_depression, \
-                f"Band is not a depression (indented inward). " \
-                f"Equator/polar distance ratio: {distance_ratio:.4f}, expected < 0.995. " \
-                f"The band should be indented like in the input image, not bulging outward."
+        # The band should be indented - equator distance must be less than polar distance
+        # A ratio < 0.995 indicates the band is a depression (not a bulge)
+        is_depression = distance_ratio < 0.995
+
+        assert is_depression, \
+            f"Band is not a depression (indented inward). " \
+            f"Equator/polar distance ratio: {distance_ratio:.4f}, expected < 0.995. " \
+            f"The band should be indented like in the input image, not bulging outward."
 
     def test_has_button_feature(self):
         """
