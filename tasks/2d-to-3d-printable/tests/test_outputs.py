@@ -3,15 +3,16 @@
 Test cases for 2D to 3D printable conversion task.
 Verifies that the output STL meets all requirements.
 """
-import os
-import pytest
-import numpy as np
 
+import os
+
+import numpy as np
+import pytest
 
 # Path to workspace
-WORKSPACE = '/root/workspace'
-OUTPUT_STL = os.path.join(WORKSPACE, 'output.stl')
-INPUT_PNG = os.path.join(WORKSPACE, 'input.png')
+WORKSPACE = "/root/workspace"
+OUTPUT_STL = os.path.join(WORKSPACE, "output.stl")
+INPUT_PNG = os.path.join(WORKSPACE, "input.png")
 
 # Constraints
 MAX_DIMENSION = 100.0  # 10cm = 100mm
@@ -59,12 +60,9 @@ class TestDimensions:
         bounds = mesh.bounds
         dimensions = bounds[1] - bounds[0]
 
-        assert dimensions[0] <= MAX_DIMENSION, \
-            f"X dimension {dimensions[0]:.2f}mm exceeds {MAX_DIMENSION}mm"
-        assert dimensions[1] <= MAX_DIMENSION, \
-            f"Y dimension {dimensions[1]:.2f}mm exceeds {MAX_DIMENSION}mm"
-        assert dimensions[2] <= MAX_DIMENSION, \
-            f"Z dimension {dimensions[2]:.2f}mm exceeds {MAX_DIMENSION}mm"
+        assert dimensions[0] <= MAX_DIMENSION, f"X dimension {dimensions[0]:.2f}mm exceeds {MAX_DIMENSION}mm"
+        assert dimensions[1] <= MAX_DIMENSION, f"Y dimension {dimensions[1]:.2f}mm exceeds {MAX_DIMENSION}mm"
+        assert dimensions[2] <= MAX_DIMENSION, f"Z dimension {dimensions[2]:.2f}mm exceeds {MAX_DIMENSION}mm"
 
     def test_has_reasonable_size(self):
         """Model should have meaningful dimensions (not too tiny)."""
@@ -94,8 +92,7 @@ class TestPrintability:
         assert os.path.exists(OUTPUT_STL), f"Output file not found: {OUTPUT_STL}"
 
         mesh = trimesh.load(OUTPUT_STL)
-        assert mesh.is_watertight, \
-            "Mesh is not watertight - has holes or gaps that will cause printing issues"
+        assert mesh.is_watertight, "Mesh is not watertight - has holes or gaps that will cause printing issues"
 
     def test_no_degenerate_faces(self):
         """Model should not have degenerate (zero-area) faces."""
@@ -110,8 +107,7 @@ class TestPrintability:
 
         # Allow a small number of degenerate faces (some tools produce these)
         max_degenerate = len(mesh.faces) * 0.01  # Max 1%
-        assert num_degenerate <= max_degenerate, \
-            f"Too many degenerate faces: {num_degenerate} (max {max_degenerate:.0f})"
+        assert num_degenerate <= max_degenerate, f"Too many degenerate faces: {num_degenerate} (max {max_degenerate:.0f})"
 
     def test_positive_volume(self):
         """Model must have positive volume."""
@@ -132,9 +128,8 @@ class TestProjectionMatch:
         The top-down (Z-axis) projection of the 3D model should match
         the shape in the input 2D image.
         """
-        import trimesh
         import cv2
-        from PIL import Image
+        import trimesh
 
         assert os.path.exists(OUTPUT_STL), f"Output file not found: {OUTPUT_STL}"
         assert os.path.exists(INPUT_PNG), f"Input file not found: {INPUT_PNG}"
@@ -148,6 +143,7 @@ class TestProjectionMatch:
 
         # Get convex hull of projection
         from scipy.spatial import ConvexHull
+
         try:
             hull = ConvexHull(vertices_2d)
             hull_points = vertices_2d[hull.vertices]
@@ -214,5 +210,4 @@ class TestProjectionMatch:
         # Require at least 50% IoU for similar shapes
         # This is a relaxed threshold to account for simplification
         min_iou = 0.5
-        assert iou >= min_iou, \
-            f"Projection similarity too low: IoU={iou:.2f}, required >={min_iou}"
+        assert iou >= min_iou, f"Projection similarity too low: IoU={iou:.2f}, required >={min_iou}"

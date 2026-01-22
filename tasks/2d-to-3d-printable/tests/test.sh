@@ -21,8 +21,10 @@ uvx \
     --with scipy==1.17.0 \
     --with shapely==2.1.2 \
     --with mapbox-earcut==2.0.0 \
-    python -m pytest --ctrf /logs/verifier/ctrf.json /root/tests/test_outputs.py \
+    python -m pytest --ctrf /logs/verifier/ctrf.json /tests/test_outputs.py \
     -rA -v | tee /logs/verifier/test_output.log
+
+cp /root/workspace/output.stl /logs/verifier/
 
 EXIT_CODE=${PIPESTATUS[0]}
 
