@@ -1,0 +1,11 @@
+{
+  "research_topic": "Latest developments in AI safety research in 2024",
+  "output_file": "research_report.json",
+  "min_sources": 3,
+  "min_findings": 5,
+  "mcp_server": {
+    "name": "playwright",
+    "command": "npx",
+    "args": ["@anthropic-ai/mcp-playwright"]
+  }
+}
